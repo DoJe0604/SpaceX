@@ -1,0 +1,90 @@
+import dash
+import dash_core_components as dcc
+import dash_html_components as html
+from dash.dependencies import Input, Output
+import plotly.express as px
+import pandas as pd
+
+# Sample SpaceX data
+spacex_df = pd.DataFrame({
+    'Launch Site': ['site1', 'site1', 'site2', 'site2', 'site3', 'site3', 'site4', 'site4'],
+    'class': [1, 0, 1, 1, 0, 0, 1, 1],
+    'Payload Mass (kg)': [1000, 2300, 1500, 1800, 2500, 2700, 3000, 3300],
+    'Booster Version Category': ['v1.0', 'v1.1', 'v1.0', 'v1.1', 'v2.0', 'v2.0', 'v2.0', 'v2.0']
+})
+
+# Initialize Dash app
+app = dash.Dash(__name__)
+
+# Define layout
+app.layout = html.Div([
+    html.H1("SpaceX Launch Records Dashboard", style={'textAlign': 'center'}),
+    
+    # Dropdown menu for selecting launch sites
+    dcc.Dropdown(
+        id='site-dropdown',
+        options=[
+            {'label': 'All Sites', 'value': 'ALL'},
+            {'label': 'Site 1', 'value': 'site1'},
+            {'label': 'Site 2', 'value': 'site2'},
+            {'label': 'Site 3', 'value': 'site3'},
+            {'label': 'Site 4', 'value': 'site4'}
+        ],
+        value='ALL',  # Default value
+        placeholder="Select a Launch Site",
+        searchable=True
+    ),
+
+    # Payload slider
+    dcc.RangeSlider(
+        id='payload-slider',
+        min=spacex_df['Payload Mass (kg)'].min(),
+        max=spacex_df['Payload Mass (kg)'].max(),
+        step=100,
+        marks={i: str(i) for i in range(1000, 3501, 500)},  # Add tick marks for steps
+        value=[spacex_df['Payload Mass (kg)'].min(), spacex_df['Payload Mass (kg)'].max()]  # Default range
+    ),
+
+    # Placeholder for scatter plot
+    html.Div(id='success-payload-scatter-chart')
+])
+
+# Callback function to render scatter plot
+@app.callback(
+    Output(component_id='success-payload-scatter-chart', component_property='children'),
+    [Input(component_id='site-dropdown', component_property='value'),
+     Input(component_id='payload-slider', component_property='value')]
+)
+def update_scatter_chart(selected_site, payload_range):
+    # Filter data based on payload range
+    low, high = payload_range
+    filtered_df = spacex_df[(spacex_df['Payload Mass (kg)'] >= low) & (spacex_df['Payload Mass (kg)'] <= high)]
+
+    # Check if all sites are selected
+    if selected_site == 'ALL':
+        fig = px.scatter(
+            filtered_df,
+            x='Payload Mass (kg)',
+            y='class',
+            color='Booster Version Category',
+            title='Payload vs. Success Outcome for All Sites',
+            labels={'class': 'Success (1) / Failure (0)'}
+        )
+    else:
+        filtered_df = filtered_df[filtered_df['Launch Site'] == selected_site]
+        fig = px.scatter(
+            filtered_df,
+            x='Payload Mass (kg)',
+            y='class',
+            color='Booster Version Category',
+            title=f'Payload vs. Success Outcome for {selected_site}',
+            labels={'class': 'Success (1) / Failure (0)'}
+        )
+
+    return dcc.Graph(figure=fig)
+
+# Run the app
+if __name__ == "__main__":
+    app.run_server(debug=True)
+ 
+    
